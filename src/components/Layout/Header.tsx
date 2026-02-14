@@ -6,6 +6,7 @@ import {
   ChevronDown,
   LogOut,
   UserCircle,
+  Gift,
 } from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
 import { Link } from "react-router-dom";
@@ -54,7 +55,8 @@ const Header: React.FC = () => {
       <div className="flex items-center justify-between">
         {/* Logo */}
         <Link to="/" className="flex items-center space-x-2">
-          <img src="/images/logo.svg" alt="logo" className="h-12" />
+          <img src="/images/logo.png" alt="logo" className="h-14" />
+          {/* <span className="font-montserrat text-lg font-bold">CessPlug</span> */}
         </Link>
 
         {/* Search - desktop only */}
@@ -110,6 +112,14 @@ const Header: React.FC = () => {
                   >
                     <UserCircle size={18} />
                     <span>My Profile</span>
+                  </Link>
+                  <Link
+                    to="/chamas"
+                    className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-100"
+                    onClick={() => setIsProfileDropdownOpen(false)}
+                  >
+                    <Gift size={18} />
+                    <span>My Chamas</span>
                   </Link>
                   <button
                     onClick={handleLogout}
@@ -194,6 +204,14 @@ const Header: React.FC = () => {
               >
                 <User size={20} />
                 <span>My Profile</span>
+              </Link>
+              <Link
+                to="/chamas"
+                className="flex items-center space-x-2 text-gray-700 hover:text-orange-500"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Gift size={20} />
+                <span>My Chamas</span>
               </Link>
               <button
                 onClick={() => {

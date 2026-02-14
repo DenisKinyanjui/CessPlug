@@ -20,7 +20,7 @@ const Home: React.FC = () => {
       
       <main>
         <HeroBanner />
-        <InfoStrip />
+        {/* <InfoStrip /> */}
         <TodaysDeals />
         <NewArrivals />
         {/* <TopCategories /> */}

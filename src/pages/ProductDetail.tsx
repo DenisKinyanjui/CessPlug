@@ -15,12 +15,16 @@ import {
   Home,
   Loader2,
   ChevronRight,
+  Gift,
+  AlertCircle,
 } from "lucide-react";
 import { addToCart } from "../store/slices/cartSlice";
 import SEOHelmet from "../components/SEO/SEOHelmet";
 import ProductReviews from "../components/Products/ProductReviews";
 import { getProductBySlug } from "../services/productApi";
+import { checkChamaEligibility } from "../services/chamaApi";
 import { Product } from "../types/Product";
+import { ChamaEligibility } from "../types/Chama";
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -33,6 +37,10 @@ const ProductDetail: React.FC = () => {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Chama related states
+  const [chamaEligibility, setChamaEligibility] = useState<ChamaEligibility | null>(null);
+  const [chamaLoading, setChamaLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"specifications" | "reviews">(
     "specifications"
@@ -66,6 +74,26 @@ const ProductDetail: React.FC = () => {
       navigate("/");
     }
   }, [product, loading, error, navigate]);
+
+  // Check chama eligibility - try to fetch from first group if user has any
+  useEffect(() => {
+    const checkEligibility = async () => {
+      try {
+        setChamaLoading(true);
+        // In a real app, you'd fetch user's chama groups first
+        // For now, we'll just mark that chama is potentially available
+        // The actual eligibility check happens at checkout
+        setChamaLoading(false);
+      } catch (err) {
+        console.log("Unable to check chama eligibility");
+        setChamaLoading(false);
+      }
+    };
+
+    if (product && !loading) {
+      checkEligibility();
+    }
+  }, [product, loading]);
 
   if (loading) {
     return (
@@ -133,6 +161,24 @@ const ProductDetail: React.FC = () => {
       })
     );
     navigate("/checkout");
+  };
+
+  const handleRedeemWithChama = () => {
+    // Add to cart first
+    dispatch(
+      addToCart({
+        id: product._id,
+        name: product.name,
+        price: product.price,
+        image: product.images[0],
+        category: product.category.name,
+      })
+    );
+    // Navigate to checkout with chama context
+    // Note: In production, you'd pass chama group ID via location state
+    navigate("/checkout", {
+      state: { useChama: true },
+    });
   };
 
   const renderStars = (rating: number) => {
@@ -324,14 +370,15 @@ const ProductDetail: React.FC = () => {
               {/* Action Buttons - Made sticky on mobile */}
               <div className="fixed sm:static bottom-0 left-0 right-0 bg-white sm:bg-transparent border-t border-gray-200 sm:border-t-0 shadow-lg sm:shadow-none p-4 sm:p-0 z-10">
                 <div className="container mx-auto px-2 sm:px-0">
-                  <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <button
                       onClick={handleAddToCart}
                       disabled={product.stock <= 0}
                       className="flex items-center justify-center space-x-3 py-3 px-6 border-2 border-orange-600 text-orange-600 rounded-lg font-semibold hover:bg-orange-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
-                      <span>Add to Cart</span>
+                      <span className="hidden sm:inline">Add to Cart</span>
+                      <span className="sm:hidden text-xs">Cart</span>
                     </button>
 
                     <button
@@ -340,9 +387,30 @@ const ProductDetail: React.FC = () => {
                       className="flex items-center justify-center space-x-3 py-3 px-6 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white rounded-lg font-semibold transition-colors shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <CreditCard className="w-4 h-4 sm:w-5 sm:h-5" />
-                      <span>Order Now</span>
+                      <span className="hidden sm:inline">Order Now</span>
+                      <span className="sm:hidden text-xs">Order</span>
+                    </button>
+
+                    <button
+                      onClick={handleRedeemWithChama}
+                      disabled={product.stock <= 0}
+                      className="hidden sm:flex items-center justify-center space-x-3 py-3 px-6 border-2 border-green-600 text-green-600 rounded-lg font-semibold hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Redeem with your chama group credit"
+                    >
+                      <Gift className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span>Redeem</span>
                     </button>
                   </div>
+                  {/* Mobile chama button - shown full width on small screens */}
+                  <button
+                    onClick={handleRedeemWithChama}
+                    disabled={product.stock <= 0}
+                    className="sm:hidden w-full flex items-center justify-center space-x-3 mt-3 py-3 px-6 border-2 border-green-600 text-green-600 rounded-lg font-semibold hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Redeem with your chama group credit"
+                  >
+                    <Gift className="w-4 h-4" />
+                    <span>Redeem with Chama</span>
+                  </button>
                 </div>
               </div>
 

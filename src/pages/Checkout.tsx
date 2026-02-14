@@ -14,10 +14,12 @@ import { initiateSTKPush, checkPaymentStatus } from "../services/mpesaApi";
 import CheckoutItems from "../components/checkout/CheckoutItems";
 import PaymentMethodSelector from "../components/checkout/PaymentMethodSelector";
 import DeliveryDetailsForm from "../components/checkout/DeliveryDetailsForm";
-import PickupStationSelector from "../components/checkout/PickupStationSelector";
 import OrderSummary from "../components/checkout/OrderSummary";
 import PhoneConfirmationModal from "../components/checkout/PhoneConfirmationModal";
 import PaymentStatusModal from "../components/checkout/PaymentStatusModal";
+
+// Import types
+import { ChamaCheckoutContext } from "../types/Chama";
 
 interface Address {
   _id: string;
@@ -31,25 +33,13 @@ interface Address {
   isDefault: boolean;
 }
 
-interface LocationSelection {
-  county: string;
-  town: string;
-}
-
 interface ShippingAddress {
   address: string;
   city: string;
   postalCode?: string;
   country: string;
-  deliveryMethod?: "home_delivery" | "pickup_station";
-  pickupStationId?: string;
-  pickupLocation?: {
-    county: string;
-    town: string;
-  };
+  deliveryMethod: "home_delivery";
 }
-
-type DeliveryMethod = "home_delivery" | "pickup_station";
 
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
@@ -78,18 +68,17 @@ const Checkout: React.FC = () => {
   });
 
   const [paymentMethod, setPaymentMethod] = useState("mpesa");
-  const [deliveryMethod, setDeliveryMethod] =
-    useState<DeliveryMethod>("home_delivery");
-  const [selectedPickupStation, setSelectedPickupStation] = useState("");
-  const [pickupLocation, setPickupLocation] = useState<LocationSelection>({
-    county: "",
-    town: "",
-  });
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
   const [isLoadingUserData, setIsLoadingUserData] = useState(true);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
+
+  // Chama related states
+  const [chamaContext, setChamaContext] = useState<ChamaCheckoutContext>({
+    useChamaCredit: false,
+    isChamaEligible: false,
+  });
 
   // M-Pesa related states
   const [showPhoneConfirmModal, setShowPhoneConfirmModal] = useState(false);
@@ -99,7 +88,7 @@ const Checkout: React.FC = () => {
   const [paymentStatus, setPaymentStatus] = useState<
     "pending" | "completed" | "failed" | null
   >(null);
-  const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  const [currentOrderId, setCurrentOrderId] = useState<string>("");
 
   // Memoized callback functions to prevent unnecessary re-renders
   const handleRemoveItem = useCallback(
@@ -108,26 +97,6 @@ const Checkout: React.FC = () => {
     },
     [dispatch]
   );
-
-  const handlePickupStationSelect = useCallback((stationId: string) => {
-    setSelectedPickupStation(stationId);
-    setError(""); // Clear any previous errors
-  }, []);
-
-  const handleLocationChange = useCallback((location: LocationSelection) => {
-    setPickupLocation(location);
-  }, []);
-
-  const handleDeliveryMethodChange = useCallback((method: DeliveryMethod) => {
-    setDeliveryMethod(method);
-    setError(""); // Clear any previous errors
-
-    // Reset pickup station selection when switching away from pickup
-    if (method === "home_delivery") {
-      setSelectedPickupStation("");
-      setPickupLocation({ county: "", town: "" });
-    }
-  }, []);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -368,9 +337,8 @@ const validateOrderForm = useCallback(() => {
   console.log("🔍 Validating order form with:");
   console.log("- User:", user?.email);
   console.log("- Customer Info:", customerInfo);
-  console.log("- Delivery Method:", deliveryMethod);
-  console.log("- Selected Pickup Station:", selectedPickupStation);
-  console.log("- Pickup Location:", pickupLocation);
+  console.log("- Payment Method:", paymentMethod);
+  console.log("- Chama Context:", chamaContext);
 
   // Clear previous errors
   setError("");
@@ -378,7 +346,6 @@ const validateOrderForm = useCallback(() => {
   if (!user) {
     console.log("❌ Validation failed: No user");
     setError("Please login to complete your order");
-    // Scroll to top to show error
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return false;
   }
@@ -398,38 +365,11 @@ const validateOrderForm = useCallback(() => {
     return false;
   }
 
-  if (deliveryMethod === "home_delivery") {
-    if (!customerInfo.address || !customerInfo.city) {
-      console.log("❌ Validation failed: Missing delivery address");
-      setError("Please provide your complete delivery address (street address and city)");
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return false;
-    }
-
-  } else if (deliveryMethod === "pickup_station") {
-    if (!pickupLocation.county || !pickupLocation.town) {
-      console.log("❌ Validation failed: Missing pickup location");
-      setError("Please select your pickup location (county and town)");
-      
-      // Scroll to pickup station section
-      const pickupSection = document.getElementById('pickup-station-section');
-      if (pickupSection) {
-        pickupSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      return false;
-    }
-
-    if (!selectedPickupStation) {
-      console.log("❌ Validation failed: No pickup station selected");
-      setError("Please select a pickup station from the available options");
-      
-      // Scroll to pickup station section
-      const pickupSection = document.getElementById('pickup-station-section');
-      if (pickupSection) {
-        pickupSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      return false;
-    }
+  if (!customerInfo.address || !customerInfo.city) {
+    console.log("❌ Validation failed: Missing delivery address");
+    setError("Please provide your complete delivery address (street address and city)");
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return false;
   }
 
   // Validate payment method
@@ -440,44 +380,24 @@ const validateOrderForm = useCallback(() => {
     return false;
   }
 
+  // Validate chama if selected
+  if (paymentMethod === "chama" && !chamaContext.isChamaEligible) {
+    console.log("❌ Validation failed: Not eligible for chama");
+    setError("You are not eligible to use chama credit for this order");
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return false;
+  }
+
   console.log("✅ Validation passed");
   return true;
 }, [
   user,
   customerInfo,
-  deliveryMethod,
-  selectedPickupStation,
-  pickupLocation,
   paymentMethod,
   mpesaPhoneNumber,
+  chamaContext,
   isValidPhoneNumber,
 ]);
-
-  const handleConfirmOrder = useCallback(async () => {
-    if (!validateOrderForm()) {
-      return;
-    }
-
-    // Auto-save delivery details as default address if they've changed (only for home delivery)
-    if (deliveryMethod === "home_delivery" && hasDeliveryDetailsChanged()) {
-      await saveDeliveryDetailsAsDefault();
-    }
-
-    // If M-Pesa is selected, show phone confirmation modal
-    if (paymentMethod === "mpesa") {
-      setShowPhoneConfirmModal(true);
-      return;
-    }
-
-    // Handle Cash on Delivery
-    await processOrder();
-  }, [
-    validateOrderForm,
-    deliveryMethod,
-    hasDeliveryDetailsChanged,
-    saveDeliveryDetailsAsDefault,
-    paymentMethod,
-  ]);
 
 const processOrder = useCallback(async () => {
   setIsProcessing(true);
@@ -492,70 +412,46 @@ const processOrder = useCallback(async () => {
       image: item.image,
     }));
 
-    const shippingCost = deliveryMethod === "home_delivery" ? 0 : 0; // Free delivery for both methods
+    const shippingCost = 0; // Free delivery
     const taxAmount = 0;
-    const discountAmount = totalAmount * 0;
+    const discountAmount = 0;
     const giftBoxCost = 0;
-    const finalTotal =
-      totalAmount - discountAmount + giftBoxCost + shippingCost;
+    let finalTotal = totalAmount - discountAmount + giftBoxCost + shippingCost;
 
-    // Prepare shipping address based on delivery method
-    let shippingAddress: ShippingAddress;
-    if (deliveryMethod === "home_delivery") {
-      shippingAddress = {
-        address: customerInfo.address,
-        city: customerInfo.city,
-        postalCode: "00000",
-        country: customerInfo.country,
-        deliveryMethod: "home_delivery",
-      };
-    } else {
-      shippingAddress = {
-        address: `Pickup Station - ${pickupLocation.town}, ${pickupLocation.county}`,
-        city: pickupLocation.town,
-        postalCode: "00000",
-        country: "Kenya",
-        deliveryMethod: "pickup_station",
-        pickupStationId: selectedPickupStation, // Keep this for frontend reference
-        pickupLocation: pickupLocation,
-      };
+    // If using chama, reduce final total by chama amount
+    let chamaAmount = 0;
+    if (paymentMethod === "chama" && chamaContext.chamaMaxAmount) {
+      chamaAmount = Math.min(chamaContext.chamaMaxAmount, finalTotal);
+      finalTotal = finalTotal - chamaAmount;
     }
 
-    const orderData: {
-      orderItems: Array<{
-        product: string;
-        name: string;
-        quantity: number;
-        price: number;
-        image: string;
-      }>;
-      shippingAddress: ShippingAddress;
-      paymentMethod: "mpesa" | "cod";
-      itemsPrice: number;
-      taxPrice: number;
-      shippingPrice: number;
-      totalPrice: number;
-      deliveryMethod: DeliveryMethod;
-      pickupStation?: string; // ✅ ADD: Pickup station ID at root level
-      pickupInstructions?: string; // ✅ ADD: Optional pickup instructions
-    } = {
+    // Prepare shipping address for home delivery
+    const shippingAddress: ShippingAddress = {
+      address: customerInfo.address,
+      city: customerInfo.city,
+      postalCode: "00000",
+      country: customerInfo.country,
+      deliveryMethod: "home_delivery",
+    };
+
+    const orderData: any = {
       orderItems,
       shippingAddress,
-      paymentMethod: paymentMethod as "mpesa" | "cod",
+      paymentMethod: paymentMethod === "chama" ? "mpesa" : paymentMethod,
       itemsPrice: totalAmount,
       taxPrice: taxAmount,
       shippingPrice: shippingCost,
-      totalPrice: finalTotal,
-      deliveryMethod,
+      totalPrice: paymentMethod === "chama" ? finalTotal : totalAmount,
+      deliveryMethod: "home_delivery",
     };
 
-    // ✅ FIX: Add pickup station ID at root level for backend
-    if (deliveryMethod === "pickup_station" && selectedPickupStation) {
-      orderData.pickupStation = selectedPickupStation;
-      orderData.pickupInstructions = ""; // You can add pickup instructions field later
+    // Add chama data if using chama credit
+    if (paymentMethod === "chama") {
+      orderData.useChamaCredit = true;
+      orderData.chamaGroupId = chamaContext.chamaGroupId;
     }
 
-    console.log("Order data being sent:", orderData); // 🔍 Debug log
+    console.log("Order data being sent:", orderData);
 
     const response = await placeOrder(orderData);
 
@@ -568,7 +464,14 @@ const processOrder = useCallback(async () => {
           state: { orderId: response.data.order._id },
         });
       } else if (paymentMethod === "mpesa") {
-        await initiateMpesaPayment(response.data.order._id, finalTotal);
+        // Pay full amount via M-Pesa
+        await initiateMpesaPayment(response.data.order._id, totalAmount);
+      } else if (paymentMethod === "chama") {
+        // Pure chama payment, no M-Pesa needed
+        dispatch(clearCart());
+        navigate("/order-success", {
+          state: { orderId: response.data.order._id },
+        });
       }
     } else {
       throw new Error("Failed to place order");
@@ -585,15 +488,39 @@ const processOrder = useCallback(async () => {
   }
 }, [
   items,
-  deliveryMethod,
   totalAmount,
   customerInfo,
-  pickupLocation,
-  selectedPickupStation, // ✅ Make sure this is in dependencies
   paymentMethod,
+  chamaContext,
   dispatch,
   navigate,
 ]);
+
+  const handleConfirmOrder = useCallback(async () => {
+    if (!validateOrderForm()) {
+      return;
+    }
+
+    // Auto-save delivery details as default address if they've changed
+    if (hasDeliveryDetailsChanged()) {
+      await saveDeliveryDetailsAsDefault();
+    }
+
+    // If M-Pesa is selected, show phone confirmation modal
+    if (paymentMethod === "mpesa") {
+      setShowPhoneConfirmModal(true);
+      return;
+    }
+
+    // Handle Cash on Delivery or Chama
+    await processOrder();
+  }, [
+    validateOrderForm,
+    hasDeliveryDetailsChanged,
+    saveDeliveryDetailsAsDefault,
+    paymentMethod,
+    processOrder,
+  ]);
 
   const initiateMpesaPayment = useCallback(
     async (orderId: string, amount: number) => {
@@ -667,17 +594,7 @@ const processOrder = useCallback(async () => {
       return false;
     }
 
-    if (deliveryMethod === "home_delivery") {
-      return !!(customerInfo.address && customerInfo.city);
-    } else if (deliveryMethod === "pickup_station") {
-      return !!(
-        selectedPickupStation &&
-        pickupLocation.county &&
-        pickupLocation.town
-      );
-    }
-
-    return false;
+    return !!(customerInfo.address && customerInfo.city);
   })();
 
   if (items.length === 0) {
@@ -753,140 +670,25 @@ const processOrder = useCallback(async () => {
               <PaymentMethodSelector
                 paymentMethod={paymentMethod}
                 onPaymentMethodChange={setPaymentMethod}
+                isChamaEligible={chamaContext.isChamaEligible}
+                chamaMaxAmount={chamaContext.chamaMaxAmount}
+                chamaGroupName={chamaContext.chamaGroupName}
+                ineligibilityReason={chamaContext.ineligibilityReason}
               />
 
-              {/* Delivery Method Selector */}
-              <div className="bg-white rounded-xl shadow-sm p-6">
-                <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
-                  <h2 className="text-xl font-semibold text-gray-800">
-                    Delivery Method
-                  </h2>
-                </div>
-
-                <div className="space-y-4">
-                  <div
-                    className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                      deliveryMethod === "home_delivery"
-                        ? "border-orange-500 bg-orange-50"
-                        : "border-gray-200 hover:border-orange-300"
-                    }`}
-                    onClick={() => handleDeliveryMethodChange("home_delivery")}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <input
-                        type="radio"
-                        name="deliveryMethod"
-                        value="home_delivery"
-                        checked={deliveryMethod === "home_delivery"}
-                        onChange={() =>
-                          handleDeliveryMethodChange("home_delivery")
-                        }
-                        className="text-orange-600 focus:ring-orange-500"
-                      />
-                      <div className="flex-1">
-                        <h3 className="font-medium text-gray-900">
-                          Home Delivery
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          Get your order delivered directly to your doorstep
-                        </p>
-                        <p className="text-sm font-medium text-green-600 mt-1">
-                          Free delivery
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                      deliveryMethod === "pickup_station"
-                        ? "border-orange-500 bg-orange-50"
-                        : "border-gray-200 hover:border-orange-300"
-                    }`}
-                    onClick={() => handleDeliveryMethodChange("pickup_station")}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <input
-                        type="radio"
-                        name="deliveryMethod"
-                        value="pickup_station"
-                        checked={deliveryMethod === "pickup_station"}
-                        onChange={() =>
-                          handleDeliveryMethodChange("pickup_station")
-                        }
-                        className="text-orange-600 focus:ring-orange-500"
-                      />
-                      <div className="flex-1">
-                        <h3 className="font-medium text-gray-900">
-                          Pickup Station
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          Collect your order from a convenient pickup location
-                        </p>
-                        <p className="text-sm font-medium text-green-600 mt-1">
-                          Free pickup
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Conditional rendering based on delivery method */}
-          
-{deliveryMethod === "home_delivery" ? (
-  <DeliveryDetailsForm
-    customerInfo={customerInfo}
-    addresses={addresses}
-    isLoadingUserData={isLoadingUserData}
-    showAddressDropdown={showAddressDropdown}
-    hasDeliveryDetailsChanged={hasDeliveryDetailsChanged()}
-    onInputChange={handleInputChange}
-    onToggleAddressDropdown={() =>
-      setShowAddressDropdown(!showAddressDropdown)
-    }
-    onSelectPreviousAddress={handleSelectPreviousAddress}
-  />
-) : (
-  <div className="space-y-4">
-    {/* Validation Alert - Only shows when validation fails */}
-    {!selectedPickupStation && error.toLowerCase().includes("pickup") && (
-      <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-lg animate-fade-in">
-        <div className="flex items-start">
-          <div className="flex-shrink-0">
-            <svg 
-              className="h-5 w-5 text-amber-400" 
-              viewBox="0 0 20 20" 
-              fill="currentColor"
-            >
-              <path 
-                fillRule="evenodd" 
-                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" 
-                clipRule="evenodd" 
+              {/* Delivery Details Form */}
+              <DeliveryDetailsForm
+                customerInfo={customerInfo}
+                addresses={addresses}
+                isLoadingUserData={isLoadingUserData}
+                showAddressDropdown={showAddressDropdown}
+                hasDeliveryDetailsChanged={hasDeliveryDetailsChanged()}
+                onInputChange={handleInputChange}
+                onToggleAddressDropdown={() =>
+                  setShowAddressDropdown(!showAddressDropdown)
+                }
+                onSelectPreviousAddress={handleSelectPreviousAddress}
               />
-            </svg>
-          </div>
-          <div className="ml-3 flex-1">
-            <h3 className="text-sm font-medium text-amber-800">
-              Pickup Station Required
-            </h3>
-            <div className="mt-1 text-sm text-amber-700">
-              Please select a pickup station from the options below to continue with your order.
-            </div>
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* Pickup Station Selector Component */}
-    <PickupStationSelector
-      selectedStation={selectedPickupStation}
-      onStationSelect={handlePickupStationSelect}
-      onLocationChange={handleLocationChange}
-      disabled={isProcessing}
-    />
-  </div>
-)}
             </div>
 
             <OrderSummary

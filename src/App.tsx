@@ -31,6 +31,8 @@ import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import NotFound from "./pages/NotFound";
 import ScrollToTop from "./components/ScrollToTop";
+import MyChamas from "./pages/MyChamas";
+import ChamaDetail from "./pages/ChamaDetail";
 
 
 const AppContent = () => {
@@ -76,6 +78,24 @@ const AppContent = () => {
           element={
             <RequireAuth>
               <Profile />
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/chamas"
+          element={
+            <RequireAuth>
+              <MyChamas />
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/chama/:id"
+          element={
+            <RequireAuth>
+              <ChamaDetail />
             </RequireAuth>
           }
         />

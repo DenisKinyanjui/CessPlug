@@ -49,7 +49,7 @@ const Footer: React.FC = () => {
           <div>
             <div className="flex items-center space-x-2 mb-4">
               <div className="p-1 flex flex-row gap-4">
-                <img src="/images/logo.svg" alt="logo" className="h-16" />
+                <img src="/images/white-logo.svg" alt="logo" className="h-16" />
               </div>
             </div>
             <div className="space-y-2 mb-6">

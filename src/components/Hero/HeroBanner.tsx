@@ -80,7 +80,7 @@ const HeroBanner: React.FC = () => {
               : "translate-x-full"
           }`}
         >
-          <div className="h-full w-full bg-gradient-to-r from-purple-600 to-purple-900 flex items-center">
+          <div className="h-full w-full bg-gradient-to-r from-green-600 to-green-900 flex items-center">
            <div className="container mx-auto px-3 sm:px-4 md:px-6 lg:ml-8 lg:mr-8 flex flex-col-reverse md:flex-row items-center justify-between gap-4 h-full">
               {/* Text Section */}
               <div className="text-white z-10 flex-1 text-center md:text-left">
