@@ -2,7 +2,7 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 const API_BASE_URL =
   process.env.NODE_ENV === 'production'
-    ? 'http://localhost:5000/api' // TODO: Add production URL
+    ? 'https://cessplug-server.onrender.com' // TODO: Add production URL
     : 'http://localhost:5000/api';
 
 
