@@ -36,8 +36,11 @@ export interface RegisterResponse {
   success: boolean;
   message: string;
   data: {
-    phone: string;
-    otpId: string;
+    // PHONE VERIFICATION DISABLED: now returns user + token directly
+    user: User;
+    token: string;
+    // phone: string;  // old OTP flow
+    // otpId: string;  // old OTP flow
   };
 }
 

@@ -1,7 +1,7 @@
 import axiosInstance from '../utils/axiosInstance';
 
 const getMyChamas = async () => {
-  const response = await axiosInstance.get('/chamas/my-groups');
+  const response = await axiosInstance.get('/chamas/my');
   // Handle response structure: { success: true, data: [...] } or just [...]
   if (response.data && response.data.data) {
     return response.data.data;

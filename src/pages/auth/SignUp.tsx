@@ -85,16 +85,17 @@ const SignUp: React.FC = () => {
       newErrors.email = "Please enter a valid email address";
     }
 
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Phone number is required";
-    } else if (!validatePhoneNumber(formData.phone.trim())) {
-      newErrors.phone = "Please enter a valid phone number (e.g., +254712345678 or 0712345678)";
-    }
+    // PHONE VERIFICATION DISABLED: phone validation commented out
+    // if (!formData.phone.trim()) {
+    //   newErrors.phone = "Phone number is required";
+    // } else if (!validatePhoneNumber(formData.phone.trim())) {
+    //   newErrors.phone = "Please enter a valid phone number (e.g., +254712345678 or 0712345678)";
+    // }
 
     if (!formData.password) {
       newErrors.password = "Password is required";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters long";
+    } else if (formData.password.length < 8) {
+      newErrors.password = "Password must be at least 8 characters long";
     }
 
     if (!formData.acceptTerms) {
@@ -121,13 +122,25 @@ const handleSubmit = async (e: React.FormEvent) => {
     console.log("Registering user data...", userData);
     const registerResponse = await register(userData);
 
-    if (registerResponse?.success) {
-      setPendingUserData(userData);
-      setShowPhoneVerification(true);
-      console.log("Registration successful, proceeding to phone verification");
+    // PHONE VERIFICATION DISABLED: register now returns a token directly
+    if (registerResponse?.success && registerResponse?.data?.token) {
+      localStorage.setItem('token', registerResponse.data.token);
+      localStorage.setItem('user', JSON.stringify(registerResponse.data.user));
+      await loadUser();
+      navigate("/");
+      console.log("Registration successful, logged in directly");
     } else {
       throw new Error(registerResponse?.message || 'Registration failed');
     }
+
+    // PHONE VERIFICATION DISABLED: phone verification step commented out
+    // if (registerResponse?.success) {
+    //   setPendingUserData(userData);
+    //   setShowPhoneVerification(true);
+    //   console.log("Registration successful, proceeding to phone verification");
+    // } else {
+    //   throw new Error(registerResponse?.message || 'Registration failed');
+    // }
   } catch (error: any) {
     console.error("Registration error:", error);
   }
@@ -237,21 +250,22 @@ const handleSubmit = async (e: React.FormEvent) => {
     console.error("Google sign-in error occurred");
   };
 
-  if (showPhoneVerification && pendingUserData) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50 flex items-center justify-center p-4">
-        <StandalonePhoneVerification
-          title="Verify Your Phone Number"
-          description={`We'll send a verification code to ${pendingUserData.phone} to complete your registration`}
-          userName={pendingUserData.name}
-          phoneNumber={pendingUserData.phone}
-          onBack={handlePhoneVerificationBack}
-          onSuccess={handlePhoneVerificationSuccess}
-          onError={handlePhoneVerificationError}
-        />
-      </div>
-    );
-  }
+  // PHONE VERIFICATION DISABLED: phone verification screen commented out
+  // if (showPhoneVerification && pendingUserData) {
+  //   return (
+  //     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50 flex items-center justify-center p-4">
+  //       <StandalonePhoneVerification
+  //         title="Verify Your Phone Number"
+  //         description={`We'll send a verification code to ${pendingUserData.phone} to complete your registration`}
+  //         userName={pendingUserData.name}
+  //         phoneNumber={pendingUserData.phone}
+  //         onBack={handlePhoneVerificationBack}
+  //         onSuccess={handlePhoneVerificationSuccess}
+  //         onError={handlePhoneVerificationError}
+  //       />
+  //     </div>
+  //   );
+  // }
 
   if (googlePhoneVerification && googleUserData) {
     return (
@@ -389,11 +403,11 @@ const handleSubmit = async (e: React.FormEvent) => {
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Phone className="h-4 w-4 text-gray-400" />
                     </div>
+                    {/* PHONE VERIFICATION DISABLED: required attribute removed */}
                     <input
                       id="phone"
                       name="phone"
                       type="tel"
-                      required
                       value={formData.phone}
                       onChange={handleInputChange}
                       className={`w-full pl-9 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white ${
