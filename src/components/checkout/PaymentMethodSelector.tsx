@@ -9,6 +9,7 @@ interface PaymentMethodSelectorProps {
   chamaMaxAmount?: number;
   chamaGroupName?: string;
   ineligibilityReason?: string;
+  chamaError?: string;
 }
 
 const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
@@ -18,6 +19,7 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
   chamaMaxAmount = 0,
   chamaGroupName = "",
   ineligibilityReason = "",
+  chamaError,
 }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm p-6">
@@ -148,6 +150,14 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
           )}
         </div>
       </div>
+
+      {/* Chama validation error */}
+      {chamaError && (
+        <div id="field-chama" className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+          <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
+          <p className="text-sm text-red-600">{chamaError}</p>
+        </div>
+      )}
 
       {/* NEW: Chama Credit Info Display */}
       {paymentMethod === "chama" && isChamaEligible && (

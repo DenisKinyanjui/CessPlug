@@ -120,6 +120,16 @@ const MyChamas = () => {
                   <span className="font-semibold">KSH {chama.weeklyContribution}</span>
                 </div>
 
+                {/* Total Redeemable Pool */}
+                {chama.status === 'active' && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total Redeemable Pool:</span>
+                    <span className="font-semibold text-green-700">
+                      KSH {chama.weeklyContribution * (chama.members?.length || 0)}
+                    </span>
+                  </div>
+                )}
+
                 {/* Current Week */}
                 {chama.status === 'active' && (
                   <div className="flex justify-between items-center">

@@ -9,6 +9,7 @@ import { placeOrder } from "../services/orderApi";
 import { getCurrentUser, addAddress, updateProfile } from "../services/authApi";
 import { useAuth } from "../contexts/AuthContext";
 import { initiateSTKPush, checkPaymentStatus } from "../services/mpesaApi";
+import chamaApi from "../services/chamaApi";
 
 // Import components
 import CheckoutItems from "../components/checkout/CheckoutItems";
@@ -70,6 +71,13 @@ const Checkout: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState("mpesa");
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{
+    name?: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    chama?: string;
+  }>({});
   const [isLoadingUserData, setIsLoadingUserData] = useState(true);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
@@ -102,6 +110,7 @@ const Checkout: React.FC = () => {
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const { name, value } = e.target;
       setCustomerInfo((prev) => ({ ...prev, [name]: value }));
+      setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
     },
     []
   );
@@ -254,6 +263,74 @@ const Checkout: React.FC = () => {
     fetchUserDataAndAddresses();
   }, [user]);
 
+  // Fetch chama eligibility and populate chamaContext
+  useEffect(() => {
+    const fetchChamaEligibility = async () => {
+      if (!user) return;
+      try {
+        const groups = await chamaApi.getMyChamas();
+        if (!groups || groups.length === 0) {
+          setChamaContext({
+            useChamaCredit: false,
+            isChamaEligible: false,
+            ineligibilityReason: 'Not a member of any chama group',
+          });
+          return;
+        }
+
+        const activeGroups = groups.filter((g: any) => g.status === 'active');
+        if (activeGroups.length === 0) {
+          setChamaContext({
+            useChamaCredit: false,
+            isChamaEligible: false,
+            ineligibilityReason: 'No active chama group',
+          });
+          return;
+        }
+
+        // Directly call the eligibility endpoint for each active group (same check as ChamaDetail page)
+        let eligibleGroup: any = null;
+        let eligibilityData: any = null;
+
+        for (const group of activeGroups) {
+          const eligData = await chamaApi.checkChamaEligibility(group._id);
+          if (eligData.eligible) {
+            eligibleGroup = group;
+            eligibilityData = eligData;
+            break;
+          }
+        }
+
+        if (eligibleGroup && eligibilityData) {
+          setChamaContext({
+            useChamaCredit: false,
+            chamaGroupId: eligibleGroup._id,
+            chamaMaxAmount: eligibilityData.maxRedemptionAmount || (eligibleGroup.weeklyContribution * (eligibleGroup.members?.length || 1)),
+            chamaGroupName: eligibleGroup.name,
+            isChamaEligible: true,
+          });
+        } else {
+          const firstActive = activeGroups[0];
+          const reason = firstActive?.eligibility?.reason || 'Not eligible for chama credit';
+          setChamaContext({
+            useChamaCredit: false,
+            isChamaEligible: false,
+            ineligibilityReason: reason,
+          });
+        }
+      } catch (error) {
+        console.error('Error checking chama eligibility:', error);
+        setChamaContext({
+          useChamaCredit: false,
+          isChamaEligible: false,
+          ineligibilityReason: 'Could not check chama eligibility',
+        });
+      }
+    };
+
+    fetchChamaEligibility();
+  }, [user]);
+
   // Poll payment status when we have a checkout request ID
   useEffect(() => {
     let pollInterval: NodeJS.Timeout;
@@ -334,67 +411,57 @@ const Checkout: React.FC = () => {
   );
 
 const validateOrderForm = useCallback(() => {
-  console.log("🔍 Validating order form with:");
-  console.log("- User:", user?.email);
-  console.log("- Customer Info:", customerInfo);
-  console.log("- Payment Method:", paymentMethod);
-  console.log("- Chama Context:", chamaContext);
-
-  // Clear previous errors
   setError("");
 
   if (!user) {
-    console.log("❌ Validation failed: No user");
     setError("Please login to complete your order");
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return false;
   }
 
-  if (!customerInfo.name || !customerInfo.phone) {
-    console.log("❌ Validation failed: Missing customer info");
-    setError("Please fill in all required fields (name and phone number)");
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    return false;
+  const newErrors: { name?: string; phone?: string; address?: string; city?: string; chama?: string } = {};
+
+  if (!customerInfo.name) {
+    newErrors.name = "Please enter your full name";
   }
 
-  // Validate phone number format
-  if (!isValidPhoneNumber(customerInfo.phone)) {
-    console.log("❌ Validation failed: Invalid phone number");
-    setError("Please enter a valid Kenyan phone number (e.g., 0712345678)");
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    return false;
+  if (!customerInfo.phone) {
+    newErrors.phone = "Please enter your phone number";
+  } else if (!isValidPhoneNumber(customerInfo.phone)) {
+    newErrors.phone = "Please enter a valid Kenyan phone number (e.g., 0712345678)";
   }
 
-  if (!customerInfo.address || !customerInfo.city) {
-    console.log("❌ Validation failed: Missing delivery address");
-    setError("Please provide your complete delivery address (street address and city)");
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    return false;
+  if (!customerInfo.address) {
+    newErrors.address = "Please enter your street address";
   }
 
-  // Validate payment method
-  if (paymentMethod === "mpesa" && !mpesaPhoneNumber) {
-    console.log("❌ Validation failed: Missing M-Pesa phone number");
-    setError("Please provide your M-Pesa phone number");
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    return false;
+  if (!customerInfo.city) {
+    newErrors.city = "Please enter your town/city";
   }
 
-  // Validate chama if selected
   if (paymentMethod === "chama" && !chamaContext.isChamaEligible) {
-    console.log("❌ Validation failed: Not eligible for chama");
-    setError("You are not eligible to use chama credit for this order");
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    newErrors.chama = "You are not eligible to use chama credit for this order";
+  }
+
+  setFieldErrors(newErrors);
+
+  if (Object.keys(newErrors).length > 0) {
+    const firstField = (["name", "phone", "address", "city", "chama"] as const).find(
+      (f) => newErrors[f]
+    );
+    if (firstField) {
+      setTimeout(() => {
+        document.getElementById(`field-${firstField}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 50);
+    }
     return false;
   }
 
-  console.log("✅ Validation passed");
   return true;
 }, [
   user,
   customerInfo,
   paymentMethod,
-  mpesaPhoneNumber,
   chamaContext,
   isValidPhoneNumber,
 ]);
@@ -467,11 +534,16 @@ const processOrder = useCallback(async () => {
         // Pay full amount via M-Pesa
         await initiateMpesaPayment(response.data.order._id, totalAmount);
       } else if (paymentMethod === "chama") {
-        // Pure chama payment, no M-Pesa needed
-        dispatch(clearCart());
-        navigate("/order-success", {
-          state: { orderId: response.data.order._id },
-        });
+        if (finalTotal > 0) {
+          // Chama credit covers partial amount – pay the remainder via M-Pesa
+          await initiateMpesaPayment(response.data.order._id, finalTotal);
+        } else {
+          // Chama credit covers the full order – no M-Pesa needed
+          dispatch(clearCart());
+          navigate("/order-success", {
+            state: { orderId: response.data.order._id },
+          });
+        }
       }
     } else {
       throw new Error("Failed to place order");
@@ -506,19 +578,28 @@ const processOrder = useCallback(async () => {
       await saveDeliveryDetailsAsDefault();
     }
 
-    // If M-Pesa is selected, show phone confirmation modal
-    if (paymentMethod === "mpesa") {
+    // Determine if M-Pesa is needed:
+    // – full M-Pesa payment, OR
+    // – chama credit that only partially covers the order (remainder paid via M-Pesa)
+    const remainingAfterChama =
+      paymentMethod === "chama"
+        ? Math.max(0, totalAmount - (chamaContext.chamaMaxAmount || 0))
+        : 0;
+
+    if (paymentMethod === "mpesa" || (paymentMethod === "chama" && remainingAfterChama > 0)) {
       setShowPhoneConfirmModal(true);
       return;
     }
 
-    // Handle Cash on Delivery or Chama
+    // Cash on Delivery or chama that fully covers the order
     await processOrder();
   }, [
     validateOrderForm,
     hasDeliveryDetailsChanged,
     saveDeliveryDetailsAsDefault,
     paymentMethod,
+    totalAmount,
+    chamaContext,
     processOrder,
   ]);
 
@@ -669,11 +750,15 @@ const processOrder = useCallback(async () => {
 
               <PaymentMethodSelector
                 paymentMethod={paymentMethod}
-                onPaymentMethodChange={setPaymentMethod}
+                onPaymentMethodChange={(method) => {
+                  setPaymentMethod(method);
+                  setFieldErrors((prev) => ({ ...prev, chama: undefined }));
+                }}
                 isChamaEligible={chamaContext.isChamaEligible}
                 chamaMaxAmount={chamaContext.chamaMaxAmount}
                 chamaGroupName={chamaContext.chamaGroupName}
                 ineligibilityReason={chamaContext.ineligibilityReason}
+                chamaError={fieldErrors.chama}
               />
 
               {/* Delivery Details Form */}
@@ -688,6 +773,7 @@ const processOrder = useCallback(async () => {
                   setShowAddressDropdown(!showAddressDropdown)
                 }
                 onSelectPreviousAddress={handleSelectPreviousAddress}
+                fieldErrors={fieldErrors}
               />
             </div>
 
@@ -697,6 +783,7 @@ const processOrder = useCallback(async () => {
               isProcessing={isProcessing}
               isFormValid={isFormValid}
               onConfirmOrder={handleConfirmOrder}
+              chamaMaxAmount={chamaContext.chamaMaxAmount}
             />
           </div>
         </div>
@@ -714,7 +801,11 @@ const processOrder = useCallback(async () => {
         isVisible={showPaymentModal}
         paymentStatus={paymentStatus}
         mpesaPhoneNumber={mpesaPhoneNumber}
-        finalTotal={totalAmount}
+        finalTotal={
+          paymentMethod === "chama"
+            ? Math.max(0, totalAmount - (chamaContext.chamaMaxAmount || 0))
+            : totalAmount
+        }
         currentOrderId={currentOrderId}
         checkoutRequestId={checkoutRequestId}
         error={error}

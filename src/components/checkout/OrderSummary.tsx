@@ -7,6 +7,7 @@ interface OrderSummaryProps {
   isProcessing: boolean;
   isFormValid: boolean;
   onConfirmOrder: () => void;
+  chamaMaxAmount?: number;
 }
 
 const OrderSummary: React.FC<OrderSummaryProps> = ({
@@ -15,10 +16,11 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
   isProcessing,
   isFormValid,
   onConfirmOrder,
+  chamaMaxAmount = 0,
 }) => {
   const shippingCost = 0;
-  const taxAmount = 0;
-  const finalTotal = totalAmount;
+  const chamaDeduction = paymentMethod === "chama" ? Math.min(chamaMaxAmount, totalAmount) : 0;
+  const finalTotal = totalAmount - chamaDeduction;
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-6 h-fit sticky top-6">
@@ -37,13 +39,16 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
           <span className="text-gray-600">Delivery</span>
           <span className="font-medium text-green-600">Free</span>
         </div>
-        {/* <div className="flex justify-between">
-          <span className="text-gray-600">Tax</span>
-          <span className="font-medium">Ksh {taxAmount}</span>
-        </div> */}
+
+        {chamaDeduction > 0 && (
+          <div className="flex justify-between text-green-700">
+            <span className="text-gray-600">Chama Credit</span>
+            <span className="font-medium">- Ksh {chamaDeduction.toFixed(2)}</span>
+          </div>
+        )}
 
         <div className="flex justify-between text-lg font-bold border-t border-gray-100 pt-4">
-          <span>Total</span>
+          <span>{chamaDeduction > 0 && finalTotal > 0 ? "To Pay via M-Pesa" : "Total"}</span>
           <span className="text-orange-600">
             Ksh {finalTotal.toFixed(2)}
           </span>
@@ -64,7 +69,8 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
           <>
             <Package size={20} />
             <span>
-              {paymentMethod === "mpesa"
+              {paymentMethod === "mpesa" ||
+              (paymentMethod === "chama" && finalTotal > 0)
                 ? "Pay with M-Pesa"
                 : "Confirm Order"}
             </span>

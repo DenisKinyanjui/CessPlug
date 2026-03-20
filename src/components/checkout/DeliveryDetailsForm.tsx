@@ -22,6 +22,13 @@ interface CustomerInfo {
   country: string;
 }
 
+interface FieldErrors {
+  name?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+}
+
 interface DeliveryDetailsFormProps {
   customerInfo: CustomerInfo;
   addresses: Address[];
@@ -31,6 +38,7 @@ interface DeliveryDetailsFormProps {
   onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   onToggleAddressDropdown: () => void;
   onSelectPreviousAddress: (address: Address) => void;
+  fieldErrors?: FieldErrors;
 }
 
 const DeliveryDetailsForm: React.FC<DeliveryDetailsFormProps> = ({
@@ -42,6 +50,7 @@ const DeliveryDetailsForm: React.FC<DeliveryDetailsFormProps> = ({
   onInputChange,
   onToggleAddressDropdown,
   onSelectPreviousAddress,
+  fieldErrors = {},
 }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm p-6">
@@ -108,7 +117,7 @@ const DeliveryDetailsForm: React.FC<DeliveryDetailsFormProps> = ({
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
+        <div id="field-name">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Full Name
           </label>
@@ -118,10 +127,17 @@ const DeliveryDetailsForm: React.FC<DeliveryDetailsFormProps> = ({
             value={customerInfo.name}
             onChange={onInputChange}
             placeholder="Kamau Patel"
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all ${
+              fieldErrors.name
+                ? "border-red-400 focus:ring-red-400"
+                : "border-gray-200 focus:ring-orange-500"
+            }`}
             required
             disabled={isLoadingUserData}
           />
+          {fieldErrors.name && (
+            <p className="mt-1 text-sm text-red-600">{fieldErrors.name}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -139,7 +155,7 @@ const DeliveryDetailsForm: React.FC<DeliveryDetailsFormProps> = ({
             <option value="Tanzania">Tanzania</option>
           </select>
         </div>
-        <div className="md:col-span-2">
+        <div className="md:col-span-2" id="field-address">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Street Address
           </label>
@@ -153,13 +169,20 @@ const DeliveryDetailsForm: React.FC<DeliveryDetailsFormProps> = ({
               value={customerInfo.address}
               onChange={onInputChange}
               placeholder="21/3, Mirema Drive"
-              className="w-full pl-10 px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+              className={`w-full pl-10 px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all ${
+                fieldErrors.address
+                  ? "border-red-400 focus:ring-red-400"
+                  : "border-gray-200 focus:ring-orange-500"
+              }`}
               required
               disabled={isLoadingUserData}
             />
           </div>
+          {fieldErrors.address && (
+            <p className="mt-1 text-sm text-red-600">{fieldErrors.address}</p>
+          )}
         </div>
-        <div>
+        <div id="field-city">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Town/City
           </label>
@@ -169,11 +192,18 @@ const DeliveryDetailsForm: React.FC<DeliveryDetailsFormProps> = ({
             value={customerInfo.city}
             onChange={onInputChange}
             placeholder="Roysambu"
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all ${
+              fieldErrors.city
+                ? "border-red-400 focus:ring-red-400"
+                : "border-gray-200 focus:ring-orange-500"
+            }`}
             disabled={isLoadingUserData}
           />
+          {fieldErrors.city && (
+            <p className="mt-1 text-sm text-red-600">{fieldErrors.city}</p>
+          )}
         </div>
-        <div>
+        <div id="field-phone">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Phone Number
           </label>
@@ -183,10 +213,17 @@ const DeliveryDetailsForm: React.FC<DeliveryDetailsFormProps> = ({
             value={customerInfo.phone}
             onChange={onInputChange}
             placeholder="+254 731926651"
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all ${
+              fieldErrors.phone
+                ? "border-red-400 focus:ring-red-400"
+                : "border-gray-200 focus:ring-orange-500"
+            }`}
             required
             disabled={isLoadingUserData}
           />
+          {fieldErrors.phone && (
+            <p className="mt-1 text-sm text-red-600">{fieldErrors.phone}</p>
+          )}
         </div>
       </div>
     </div>

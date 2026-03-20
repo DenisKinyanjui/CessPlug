@@ -108,7 +108,11 @@ const ChamaDetail = () => {
               <div>
                 <h3 className="font-semibold text-green-800">You are eligible to redeem!</h3>
                 <p className="text-green-700 text-sm">
-                  You can redeem up to KSH {eligibility.maxRedemptionAmount} from chama credit.
+                  You can redeem up to <span className="font-bold">KSH {eligibility.maxRedemptionAmount}</span> from the group pool this turn.
+                </p>
+                <p className="text-green-600 text-xs mt-1">
+                  Pool: KSH {eligibility.totalAllowance} ({selectedChama.members?.length || 0} members × KSH {selectedChama.weeklyContribution} each)
+                  {eligibility.alreadyRedeemed > 0 && ` · KSH ${eligibility.alreadyRedeemed} already used`}
                 </p>
               </div>
             </>
@@ -126,7 +130,7 @@ const ChamaDetail = () => {
 
       {/* Group Stats */}
       {selectedChama.status === 'active' && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white rounded-lg p-4 border border-gray-200">
             <div className="text-sm text-gray-600">Current Week</div>
             <div className="text-2xl font-bold text-gray-900">{selectedChama.currentWeek}/10</div>
@@ -142,6 +146,12 @@ const ChamaDetail = () => {
           <div className="bg-white rounded-lg p-4 border border-gray-200">
             <div className="text-sm text-gray-600">Total Members</div>
             <div className="text-2xl font-bold text-gray-900">{selectedChama.members?.length || 0}</div>
+          </div>
+          <div className="bg-white rounded-lg p-4 border border-green-200 bg-green-50">
+            <div className="text-sm text-green-700">Total Redeemable Pool</div>
+            <div className="text-2xl font-bold text-green-800">
+              KSH {selectedChama.weeklyContribution * (selectedChama.members?.length || 0)}
+            </div>
           </div>
         </div>
       )}
